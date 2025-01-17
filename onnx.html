@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DINOv2 Model Inference</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        text-align: center;
+      }
+      .image-container {
+        display: flex;
+        justify-content: space-around;
+        margin-top: 20px;
+      }
+      .image-container img {
+        max-width: 100%;
+        height: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Image Processing with DINOv2</h1>
+
+    <input
+      type="file"
+      id="imageInput"
+      accept="image/*"
+      onchange="handleImageUpload(event)"
+    />
+    <br /><br />
+    <div class="image-container">
+      <div>
+        <h3>Original Image</h3>
+        <img id="originalImage" src="" alt="Original Image" />
+      </div>
+      <div>
+        <h3>Feature Map</h3>
+        <canvas id="featureMapCanvas"></canvas>
+      </div>
+      <div>
+        <h3>Superposed Image</h3>
+        <canvas id="superposedCanvas"></canvas>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.0.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/onnxjs/dist/onnx.min.js"></script>
+
+    <script>
+      function handleImageUpload(event) {
+        console.log("Image uploaded. Processing...");
+        const file = event.target.files[0];
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          const img = new Image();
+          img.src = e.target.result;
+          img.onload = function () {
+            console.log("Image loaded, starting processing...");
+            processImage(img);
+          };
+        };
+        reader.readAsDataURL(file);
+      }
+
+      async function processImage(image) {
+        console.log("Image preprocessing started...");
+
+        document.getElementById("originalImage").src = image.src;
+
+        let inputTensor = tf.browser.fromPixels(image).toFloat();
+        console.log("Image converted to Tensor.");
+
+        inputTensor = tf.image.resizeBilinear(inputTensor, [518, 518]);
+        console.log("Image resized.");
+
+        inputTensor = inputTensor.div(tf.scalar(255));
+        inputTensor = inputTensor.sub(tf.scalar(0.5)).div(tf.scalar(0.5));
+        console.log("Image normalized.");
+
+        console.log("Loading ONNX model...");
+        const session = new onnx.InferenceSession();
+        await session.loadModel("models/vit_large_patch14_dinov2_float32.onnx");
+        console.log("Model loaded successfully.");
+
+        const inputTensorData = new onnx.Tensor(
+          inputTensor.dataSync(),
+          inputTensor.shape,
+          "float32"
+        );
+        console.log("Input prepared for model.");
+
+        console.log("Running model...");
+        const output = await session.run([inputTensorData]);
+
+        const outputTensor = output.values().next().value;
+        console.log(outputTensor.data);
+      }
+    </script>
+  </body>
+</html>

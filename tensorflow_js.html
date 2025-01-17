@@ -23,7 +23,6 @@
   <body>
     <h1>Traitement de l'image avec DINOv2</h1>
 
-    <!-- Zone pour télécharger l'image -->
     <input
       type="file"
       id="imageInput"
@@ -46,11 +45,9 @@
       </div>
     </div>
 
-    <!-- Charger TensorFlow.js avant le script -->
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.0.0/dist/tf.min.js"></script>
 
     <script>
-      // Fonction pour charger et afficher l'image téléchargée
       function handleImageUpload(event) {
         const file = event.target.files[0];
         const reader = new FileReader();
@@ -64,39 +61,29 @@
         reader.readAsDataURL(file);
       }
 
-      // Fonction pour prétraiter l'image et effectuer l'inférence
       async function processImage(image) {
-        // Afficher l'image originale
         document.getElementById("originalImage").src = image.src;
 
-        // Convertir l'image en Tensor pour traitement
         let inputTensor = tf.browser.fromPixels(image).toFloat();
 
-        // Redimensionner l'image à la taille attendue par le modèle
         inputTensor = tf.image.resizeBilinear(inputTensor, [518, 518]);
 
-        // Normalisation de l'image (similaire à la fonction de prétraitement du code original)
-        inputTensor = inputTensor.div(tf.scalar(255)); // Normalisation 0-1
-        inputTensor = inputTensor.sub(tf.scalar(0.5)).div(tf.scalar(0.5)); // Normalisation [-1, 1]
+        inputTensor = inputTensor.div(tf.scalar(255));
+        inputTensor = inputTensor.sub(tf.scalar(0.5)).div(tf.scalar(0.5));
 
-        // Charger le modèle DINOv2 (supposé en TensorFlow.js, ou utiliser un modèle converti ONNX.js)
         const model = await tf.loadLayersModel(
           "models/vit_large_patch14_dinov2/config.json"
-        ); // Modifier avec le bon modèle converti
+        );
 
-        // Effectuer l'inférence
         const predictions = model.predict(inputTensor.expandDims(0));
 
-        // Récupérer les cartes de caractéristiques de la dernière couche
         const featureMap = predictions[0].arraySync();
 
-        // Générer une image à partir de la carte de caractéristiques
         const featureMapCanvas = document.getElementById("featureMapCanvas");
         const featureMapCtx = featureMapCanvas.getContext("2d");
         featureMapCanvas.width = featureMap[0].length;
         featureMapCanvas.height = featureMap.length;
 
-        // Remplir le canvas avec la carte de caractéristiques
         const imageData = featureMapCtx.createImageData(
           featureMap[0].length,
           featureMap.length
@@ -105,21 +92,19 @@
           for (let j = 0; j < featureMap[i].length; j++) {
             const idx = (i * featureMap[i].length + j) * 4;
             const value = featureMap[i][j];
-            imageData.data[idx] = value * 255; // Rouge
-            imageData.data[idx + 1] = value * 255; // Vert
-            imageData.data[idx + 2] = value * 255; // Bleu
-            imageData.data[idx + 3] = 255; // Alpha
+            imageData.data[idx] = value * 255;
+            imageData.data[idx + 1] = value * 255;
+            imageData.data[idx + 2] = value * 255;
+            imageData.data[idx + 3] = 255;
           }
         }
         featureMapCtx.putImageData(imageData, 0, 0);
 
-        // Superposition de l'image originale et de la carte de caractéristiques
         const superposedCanvas = document.getElementById("superposedCanvas");
         const superposedCtx = superposedCanvas.getContext("2d");
         superposedCanvas.width = image.width;
         superposedCanvas.height = image.height;
 
-        // Ajouter la superposition
         superposedCtx.globalAlpha = 0.9;
         superposedCtx.drawImage(image, 0, 0);
         superposedCtx.globalAlpha = 0.1;
